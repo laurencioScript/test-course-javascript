@@ -1,13 +1,24 @@
-import { find, remove } from "lodash";
+import { cond, find, remove } from "lodash";
+import { calculateDiscount } from "./discount.utils";
+import Dinero from "dinero.js";
+const Money = Dinero;
+Money.defaultCurrency = "BRL";
+Money.defaultPrecision = 2;
 
 export default class Cart {
   items = [];
 
   getTotal() {
-    return this.items.reduce(
-      (acc, item) => acc + item.product.price * item.quantity,
-      0
-    );
+    return this.items.reduce((acc, { product, quantity, condition }) => {
+      let amount = Money({ amount: product.price * quantity });
+      let discount = Money({ amount: 0 });
+
+      if (condition) {
+        discount = calculateDiscount(amount, quantity, condition);
+      }
+
+      return acc.add(amount).subtract(discount);
+    }, Money({ amount: 0 }));
   }
 
   add(item) {
@@ -25,9 +36,11 @@ export default class Cart {
 
   summary() {
     const total = this.getTotal();
+    const formatted = total.toFormat("$0,0.00");
     const items = this.items;
 
     return {
+      formatted,
       total,
       items,
     };
@@ -39,7 +52,7 @@ export default class Cart {
     this.items = [];
 
     return {
-      total,
+      total: total.getAmount(),
       items,
     };
   }
